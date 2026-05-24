@@ -423,19 +423,30 @@ function attack(moveIndex, species) {
     const move = species.moves[moveIndex];
     if (!move) return;
 
-    // Shoot in the direction player is facing (last movement direction)
-    const dir = lastAttackDirection;
-    const magnitude = Math.hypot(dir.x, dir.y);
-    const normalizedX = magnitude > 0 ? dir.x / magnitude : 1;
-    const normalizedY = magnitude > 0 ? dir.y / magnitude : 0;
+    // Shoot in current movement direction
+    let dirX = 0, dirY = 0;
+    if (input['arrowup'] || input['w']) dirY -= 1;
+    if (input['arrowdown'] || input['s']) dirY += 1;
+    if (input['arrowleft'] || input['a']) dirX -= 1;
+    if (input['arrowright'] || input['d']) dirX += 1;
+
+    // If no direction pressed, use last direction
+    if (dirX === 0 && dirY === 0) {
+        dirX = lastAttackDirection.x;
+        dirY = lastAttackDirection.y;
+    }
+
+    const magnitude = Math.hypot(dirX, dirY);
+    const normalizedX = magnitude > 0 ? dirX / magnitude : 1;
+    const normalizedY = magnitude > 0 ? dirY / magnitude : 0;
 
     gameState.projectiles.push({
         x: gameState.player.x,
         y: gameState.player.y,
-        vx: normalizedX * 4,
-        vy: normalizedY * 4,
+        vx: normalizedX * 5,
+        vy: normalizedY * 5,
         damage: move.damage,
-        range: move.range,
+        range: move.range * 1.5, // 50% longer range
         owner: 'player',
         distTraveled: 0
     });
