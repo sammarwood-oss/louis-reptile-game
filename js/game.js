@@ -570,8 +570,8 @@ function checkCollisions() {
     gameState.waterHoles.forEach(water => {
         const dist = Math.hypot(water.x - gameState.player.x, water.y - gameState.player.y);
         if (dist < water.radius + 8) {
-            // Standing in water restores health (2 HP per second)
-            gameState.hp = Math.min(gameState.maxHp, gameState.hp + 0.033);
+            // Standing in water restores health (5 HP per second - much faster healing)
+            gameState.hp = Math.min(gameState.maxHp, gameState.hp + 0.083);
         }
     });
 }
