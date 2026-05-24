@@ -14,7 +14,8 @@ const gameState = {
     player: null,
     enemies: [],
     projectiles: [],
-    obstacles: [],
+    obstacles: [], // trees, rocks
+    waterHoles: [], // water for drinking
     foodItems: [], // dropped by killed enemies
     day: 1,
     hp: 30,
@@ -26,10 +27,11 @@ const gameState = {
     startedAt: null,
     lastSavedAt: null,
     dayStartTime: null,
-    nightCycle: 60 * 1000, // 60 seconds = 1 day
+    nightCycle: 45 * 1000, // 45 seconds = 1 day
     lastEnemySpawn: 0,
     isNight: false,
     gameRunning: false,
+    lastEnemySpawnTime: 0,
 };
 
 // Species database
@@ -310,6 +312,7 @@ function startGame() {
     gameState.dayStartTime = Date.now();
     gameState.day = 1;
     gameState.lastEnemySpawn = Date.now();
+    gameState.lastEnemySpawnTime = Date.now();
     gameState.gameRunning = true;
     gameState.currentScreen = 'game';
 
@@ -321,6 +324,9 @@ function startGame() {
     }
 
     gameState.player = { x: 400, y: 300, radius: 3, species, type: gameState.selectedType };
+
+    // Generate the world
+    generateWorld();
     spawnEnemy();
     console.log('Starting game loop');
     gameLoop();
@@ -356,10 +362,28 @@ function gameLoop() {
 
 function updatePlayer() {
     const speed = 2;
-    if (input['arrowup'] || input['w']) gameState.player.y -= speed;
-    if (input['arrowdown'] || input['s']) gameState.player.y += speed;
-    if (input['arrowleft'] || input['a']) gameState.player.x -= speed;
-    if (input['arrowright'] || input['d']) gameState.player.x += speed;
+    let newX = gameState.player.x;
+    let newY = gameState.player.y;
+
+    if (input['arrowup'] || input['w']) newY -= speed;
+    if (input['arrowdown'] || input['s']) newY += speed;
+    if (input['arrowleft'] || input['a']) newX -= speed;
+    if (input['arrowright'] || input['d']) newX += speed;
+
+    // Check collision with obstacles
+    let canMove = true;
+    for (let obs of gameState.obstacles) {
+        const dist = Math.hypot(newX - obs.x, newY - obs.y);
+        if (dist < obs.radius + gameState.player.radius + 2) {
+            canMove = false;
+            break;
+        }
+    }
+
+    if (canMove) {
+        gameState.player.x = newX;
+        gameState.player.y = newY;
+    }
 
     gameState.player.x = Math.max(10, Math.min(790, gameState.player.x));
     gameState.player.y = Math.max(10, Math.min(590, gameState.player.y));
@@ -444,6 +468,15 @@ function updateProjectiles() {
         p.x += p.vx;
         p.y += p.vy;
         p.distTraveled = (p.distTraveled || 0) + Math.hypot(p.vx, p.vy);
+
+        // Check if projectile hit obstacle
+        for (let obs of gameState.obstacles) {
+            const dist = Math.hypot(p.x - obs.x, p.y - obs.y);
+            if (dist < obs.radius + 2) {
+                return false; // Remove projectile, blocked by obstacle
+            }
+        }
+
         return p.x > 0 && p.x < 800 && p.y > 0 && p.y < 600 && (!p.range || p.distTraveled < p.range);
     });
 }
@@ -464,19 +497,81 @@ function checkDayChange() {
         gameState.dayStartTime = Date.now();
         spawnEnemy();
     }
+
+    // Also spawn enemies at regular intervals (every 20 seconds)
+    if (Date.now() - gameState.lastEnemySpawnTime > 20000) {
+        const spec = ENEMY_SPECIES[Math.floor(Math.random() * ENEMY_SPECIES.length)];
+        const baseDiff = Math.floor(gameState.day / 5);
+
+        let x, y, validSpawn = false;
+        while (!validSpawn) {
+            x = Math.random() * 800;
+            y = Math.random() * 600;
+            const dist = Math.hypot(x - gameState.player.x, y - gameState.player.y);
+            validSpawn = dist > 150;
+        }
+
+        gameState.enemies.push({
+            ...spec,
+            x,
+            y,
+            hp: spec.hp + baseDiff * 5,
+            maxHp: spec.hp + baseDiff * 5,
+            difficulty: Math.max(1, baseDiff)
+        });
+
+        gameState.lastEnemySpawnTime = Date.now();
+    }
+}
+
+function generateWorld() {
+    // Generate obstacles (trees/rocks)
+    gameState.obstacles = [];
+    for (let i = 0; i < 12; i++) {
+        gameState.obstacles.push({
+            x: Math.random() * 800,
+            y: Math.random() * 600,
+            radius: 12,
+            type: Math.random() > 0.5 ? 'tree' : 'rock'
+        });
+    }
+
+    // Generate water holes
+    gameState.waterHoles = [];
+    for (let i = 0; i < 4; i++) {
+        gameState.waterHoles.push({
+            x: Math.random() * 800,
+            y: Math.random() * 600,
+            radius: 10
+        });
+    }
 }
 
 function spawnEnemy() {
-    const spec = ENEMY_SPECIES[Math.floor(Math.random() * ENEMY_SPECIES.length)];
-    const baseDiff = Math.floor(gameState.day / 5);
-    gameState.enemies.push({
-        ...spec,
-        x: Math.random() * 800,
-        y: Math.random() * 600,
-        hp: spec.hp + baseDiff * 5,
-        maxHp: spec.hp + baseDiff * 5,
-        difficulty: Math.max(1, baseDiff)
-    });
+    // Spawn 1-2 enemies per day change
+    const count = Math.random() > 0.4 ? 1 : 2;
+    for (let i = 0; i < count; i++) {
+        const spec = ENEMY_SPECIES[Math.floor(Math.random() * ENEMY_SPECIES.length)];
+        const baseDiff = Math.floor(gameState.day / 5);
+        let x, y, validSpawn = false;
+
+        // Try to spawn away from player
+        while (!validSpawn) {
+            x = Math.random() * 800;
+            y = Math.random() * 600;
+            const dist = Math.hypot(x - gameState.player.x, y - gameState.player.y);
+            validSpawn = dist > 150;
+        }
+
+        gameState.enemies.push({
+            ...spec,
+            x,
+            y,
+            hp: spec.hp + baseDiff * 5,
+            maxHp: spec.hp + baseDiff * 5,
+            difficulty: Math.max(1, baseDiff)
+        });
+    }
 }
 
 function checkCollisions() {
@@ -514,6 +609,14 @@ function checkCollisions() {
         }
         return true;
     });
+
+    // Check if player collides with water (drinking)
+    gameState.waterHoles.forEach(water => {
+        const dist = Math.hypot(water.x - gameState.player.x, water.y - gameState.player.y);
+        if (dist < water.radius + 5) {
+            gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 0.5); // slow drip of water
+        }
+    });
 }
 
 function checkDeath() {
@@ -532,6 +635,25 @@ function render() {
 
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, 800, 600);
+
+    // Draw obstacles (trees/rocks)
+    gameState.obstacles.forEach(obs => {
+        ctx.fillStyle = obs.type === 'tree' ? '#228B22' : '#8B8680';
+        ctx.beginPath();
+        ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Draw water holes
+    ctx.fillStyle = '#4A90E2';
+    gameState.waterHoles.forEach(water => {
+        ctx.beginPath();
+        ctx.arc(water.x, water.y, water.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#2E5C8A';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
 
     // Draw player
     ctx.fillStyle = '#22c55e';
