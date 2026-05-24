@@ -334,6 +334,7 @@ function startGame() {
 
 // ─── Game Loop ────────────────────────────────────────────────────────────
 const input = {};
+let lastAttackDirection = { x: 1, y: 0 }; // Default direction: right
 window.addEventListener('keydown', (e) => { input[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', (e) => { input[e.key.toLowerCase()] = false; });
 
@@ -364,11 +365,12 @@ function updatePlayer() {
     const speed = 2;
     let newX = gameState.player.x;
     let newY = gameState.player.y;
+    let moved = false;
 
-    if (input['arrowup'] || input['w']) newY -= speed;
-    if (input['arrowdown'] || input['s']) newY += speed;
-    if (input['arrowleft'] || input['a']) newX -= speed;
-    if (input['arrowright'] || input['d']) newX += speed;
+    if (input['arrowup'] || input['w']) { newY -= speed; lastAttackDirection = { x: 0, y: -1 }; moved = true; }
+    if (input['arrowdown'] || input['s']) { newY += speed; lastAttackDirection = { x: 0, y: 1 }; moved = true; }
+    if (input['arrowleft'] || input['a']) { newX -= speed; lastAttackDirection = { x: -1, y: 0 }; moved = true; }
+    if (input['arrowright'] || input['d']) { newX += speed; lastAttackDirection = { x: 1, y: 0 }; moved = true; }
 
     // Check collision with obstacles
     let canMove = true;
@@ -421,27 +423,17 @@ function attack(moveIndex, species) {
     const move = species.moves[moveIndex];
     if (!move) return;
 
-    // Find nearest enemy to aim at
-    let nearestEnemy = null;
-    let nearestDist = Infinity;
-    gameState.enemies.forEach(enemy => {
-        const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
-        if (dist < nearestDist) {
-            nearestDist = dist;
-            nearestEnemy = enemy;
-        }
-    });
+    // Shoot in the direction player is facing (last movement direction)
+    const dir = lastAttackDirection;
+    const magnitude = Math.hypot(dir.x, dir.y);
+    const normalizedX = magnitude > 0 ? dir.x / magnitude : 1;
+    const normalizedY = magnitude > 0 ? dir.y / magnitude : 0;
 
-    // If no enemy, don't attack
-    if (!nearestEnemy) return;
-
-    // Aim at nearest enemy
-    const angle = Math.atan2(nearestEnemy.y - gameState.player.y, nearestEnemy.x - gameState.player.x);
     gameState.projectiles.push({
         x: gameState.player.x,
         y: gameState.player.y,
-        vx: Math.cos(angle) * 4,
-        vy: Math.sin(angle) * 4,
+        vx: normalizedX * 4,
+        vy: normalizedY * 4,
         damage: move.damage,
         range: move.range,
         owner: 'player',
