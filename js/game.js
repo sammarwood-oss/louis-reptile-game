@@ -438,8 +438,8 @@ function attack(moveIndex, species) {
                 gameState.enemies = gameState.enemies.filter(e => e !== enemy);
                 gameState.kills++;
                 gameState.score += 100;
-                // Drop food
-                gameState.foodItems.push({ x: enemy.x, y: enemy.y, energy: 5 });
+                // Drop health item (pick up to restore health)
+                gameState.foodItems.push({ x: enemy.x, y: enemy.y, health: 10 });
             }
         }
     });
@@ -453,8 +453,23 @@ function updateEnemies() {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 1) {
-            enemy.x += (dx / dist) * 1;
-            enemy.y += (dy / dist) * 1;
+            const newX = enemy.x + (dx / dist) * 1;
+            const newY = enemy.y + (dy / dist) * 1;
+
+            // Check collision with obstacles (enemies blocked same as player)
+            let canMove = true;
+            for (let obs of gameState.obstacles) {
+                const obsDist = Math.hypot(newX - obs.x, newY - obs.y);
+                if (obsDist < obs.radius + 5) {
+                    canMove = false;
+                    break;
+                }
+            }
+
+            if (canMove) {
+                enemy.x = newX;
+                enemy.y = newY;
+            }
         }
 
         // Attack if close (instant melee)
@@ -556,11 +571,13 @@ function spawnEnemy() {
 }
 
 function checkCollisions() {
-    // Check if player collides with food (eating restores energy)
+    // Check if player collides with enemy drops (eating restores health)
     gameState.foodItems = gameState.foodItems.filter(food => {
         const dist = Math.hypot(food.x - gameState.player.x, food.y - gameState.player.y);
         if (dist < 8) {
-            gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + food.energy); // +5 per food
+            if (food.health) {
+                gameState.hp = Math.min(gameState.maxHp, gameState.hp + food.health); // +10 health per drop
+            }
             return false; // remove food
         }
         return true;
