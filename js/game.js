@@ -16,6 +16,7 @@ const gameState = {
     obstacles: [], // trees, rocks
     waterHoles: [], // water for drinking
     foodItems: [], // dropped by killed enemies
+    attackEffects: [], // visual effects (flames, ripples)
     day: 1,
     hp: 30,
     maxHp: 30,
@@ -420,6 +421,14 @@ function updatePlayer() {
     if (gameState.player.mouthOpenTime) {
         gameState.player.mouthOpenTime -= 16;
     }
+
+    // Update attack effects (flames/ripples)
+    gameState.attackEffects = gameState.attackEffects.filter(effect => {
+        effect.x += effect.vx;
+        effect.y += effect.vy;
+        effect.life -= 16;
+        return effect.life > 0;
+    });
 }
 
 function attack(moveIndex, species) {
@@ -428,6 +437,22 @@ function attack(moveIndex, species) {
 
     // Open mouth animation
     gameState.player.mouthOpenTime = 200; // milliseconds
+
+    // Create flame/fire ripple effect
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const speed = 3;
+        gameState.attackEffects.push({
+            x: gameState.player.x,
+            y: gameState.player.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 300, // milliseconds
+            maxLife: 300,
+            range: move.range,
+            color: '#FF6B35' // fire orange
+        });
+    }
 
     // Instant melee attack - damage all enemies within range
     gameState.enemies.forEach(enemy => {
@@ -637,19 +662,32 @@ function render() {
         ctx.stroke();
     });
 
-    // Draw water holes
+    // Draw water holes with ripple effect
     gameState.waterHoles.forEach(water => {
         const age = Date.now() - water.createdAt;
         const timeLeft = water.durationMs - age;
         // Fade out as pool dries up
         const alpha = Math.max(0.3, timeLeft / water.durationMs);
 
+        // Main water circle
         ctx.fillStyle = `rgba(74, 144, 226, ${alpha})`;
         ctx.beginPath();
         ctx.arc(water.x, water.y, water.radius, 0, Math.PI * 2);
         ctx.fill();
+
+        // Ripple effect
+        const ripplePhase = (Date.now() / 500) % 1;
+        ctx.strokeStyle = `rgba(74, 144, 226, ${alpha * (1 - ripplePhase)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(water.x, water.y, water.radius + ripplePhase * 10, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Border
         ctx.strokeStyle = `rgba(46, 92, 138, ${alpha})`;
         ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(water.x, water.y, water.radius, 0, Math.PI * 2);
         ctx.stroke();
     });
 
@@ -709,6 +747,22 @@ function render() {
         ctx.fillRect(enemy.x - 10, enemy.y - 14, 20, 2);
         ctx.fillStyle = color;
         ctx.fillRect(enemy.x - 10, enemy.y - 14, 20 * (enemy.hp / enemy.maxHp), 2);
+    });
+
+    // Draw attack effects (flame ripples)
+    gameState.attackEffects.forEach(effect => {
+        const alpha = effect.life / effect.maxLife;
+        ctx.fillStyle = `rgba(255, 107, 53, ${alpha * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Flame glow
+        ctx.strokeStyle = `rgba(255, 165, 0, ${alpha * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, 5, 0, Math.PI * 2);
+        ctx.stroke();
     });
 
     // Draw food items
