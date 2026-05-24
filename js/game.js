@@ -13,7 +13,6 @@ const gameState = {
     selectedSpecies: null,
     player: null,
     enemies: [],
-    projectiles: [],
     obstacles: [], // trees, rocks
     waterHoles: [], // water for drinking
     foodItems: [], // dropped by killed enemies
@@ -344,7 +343,6 @@ function gameLoop() {
     // Update
     updatePlayer();
     updateEnemies();
-    updateProjectiles();
     updateEnergy();
     checkDayChange();
     checkCollisions();
@@ -423,32 +421,19 @@ function attack(moveIndex, species) {
     const move = species.moves[moveIndex];
     if (!move) return;
 
-    // Shoot in current movement direction
-    let dirX = 0, dirY = 0;
-    if (input['arrowup'] || input['w']) dirY -= 1;
-    if (input['arrowdown'] || input['s']) dirY += 1;
-    if (input['arrowleft'] || input['a']) dirX -= 1;
-    if (input['arrowright'] || input['d']) dirX += 1;
-
-    // If no direction pressed, use last direction
-    if (dirX === 0 && dirY === 0) {
-        dirX = lastAttackDirection.x;
-        dirY = lastAttackDirection.y;
-    }
-
-    const magnitude = Math.hypot(dirX, dirY);
-    const normalizedX = magnitude > 0 ? dirX / magnitude : 1;
-    const normalizedY = magnitude > 0 ? dirY / magnitude : 0;
-
-    gameState.projectiles.push({
-        x: gameState.player.x,
-        y: gameState.player.y,
-        vx: normalizedX * 5,
-        vy: normalizedY * 5,
-        damage: move.damage,
-        range: move.range * 1.5, // 50% longer range
-        owner: 'player',
-        distTraveled: 0
+    // Instant melee attack - damage all enemies within range
+    gameState.enemies.forEach(enemy => {
+        const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
+        if (dist < move.range) {
+            enemy.hp -= move.damage;
+            if (enemy.hp <= 0) {
+                gameState.enemies = gameState.enemies.filter(e => e !== enemy);
+                gameState.kills++;
+                gameState.score += 100;
+                // Drop food
+                gameState.foodItems.push({ x: enemy.x, y: enemy.y, energy: 5 });
+            }
+        }
     });
 }
 
@@ -464,38 +449,13 @@ function updateEnemies() {
             enemy.y += (dy / dist) * 1;
         }
 
-        // Attack if close
-        if (dist < 60) {
-            if (!enemy.lastAttack || Date.now() - enemy.lastAttack > 1000) {
-                gameState.projectiles.push({
-                    x: enemy.x,
-                    y: enemy.y,
-                    vx: (dx / dist) * 3,
-                    vy: (dy / dist) * 3,
-                    damage: 3 + enemy.difficulty,
-                    owner: 'enemy'
-                });
+        // Attack if close (instant melee)
+        if (dist < 30) {
+            if (!enemy.lastAttack || Date.now() - enemy.lastAttack > 1500) {
+                gameState.hp -= (3 + enemy.difficulty);
                 enemy.lastAttack = Date.now();
             }
         }
-    });
-}
-
-function updateProjectiles() {
-    gameState.projectiles = gameState.projectiles.filter(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.distTraveled = (p.distTraveled || 0) + Math.hypot(p.vx, p.vy);
-
-        // Check if projectile hit obstacle
-        for (let obs of gameState.obstacles) {
-            const dist = Math.hypot(p.x - obs.x, p.y - obs.y);
-            if (dist < obs.radius + 2) {
-                return false; // Remove projectile, blocked by obstacle
-            }
-        }
-
-        return p.x > 0 && p.x < 800 && p.y > 0 && p.y < 600 && (!p.range || p.distTraveled < p.range);
     });
 }
 
@@ -593,31 +553,6 @@ function spawnEnemy() {
 }
 
 function checkCollisions() {
-    gameState.projectiles.forEach((proj, pidx) => {
-        if (proj.owner === 'player') {
-            gameState.enemies.forEach((enemy, eidx) => {
-                const dist = Math.hypot(proj.x - enemy.x, proj.y - enemy.y);
-                if (dist < 10) {
-                    enemy.hp -= proj.damage;
-                    gameState.projectiles.splice(pidx, 1);
-                    if (enemy.hp <= 0) {
-                        // Drop food when enemy dies
-                        gameState.foodItems.push({ x: enemy.x, y: enemy.y, energy: 5 });
-                        gameState.enemies.splice(eidx, 1);
-                        gameState.kills++;
-                        gameState.score += 100;
-                    }
-                }
-            });
-        } else {
-            const dist = Math.hypot(proj.x - gameState.player.x, proj.y - gameState.player.y);
-            if (dist < 5) {
-                gameState.hp -= proj.damage;
-                gameState.projectiles.splice(pidx, 1);
-            }
-        }
-    });
-
     // Check if player collides with food
     gameState.foodItems = gameState.foodItems.filter(food => {
         const dist = Math.hypot(food.x - gameState.player.x, food.y - gameState.player.y);
@@ -673,38 +608,40 @@ function render() {
         ctx.stroke();
     });
 
-    // Draw player
-    ctx.fillStyle = '#22c55e';
-    if (gameState.player.jumpTime) {
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.arc(gameState.player.x, gameState.player.y - 10, gameState.player.radius + 2, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.fillStyle = '#22c55e';
+    // Draw player (your animal)
+    ctx.fillStyle = '#00ff00';
     ctx.beginPath();
-    ctx.arc(gameState.player.x, gameState.player.y, gameState.player.radius, 0, Math.PI * 2);
+    ctx.arc(gameState.player.x, gameState.player.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    // Eyes
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(gameState.player.x - 2, gameState.player.y - 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(gameState.player.x + 2, gameState.player.y - 1, 1.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw enemies
-    ctx.fillStyle = '#ef4444';
     gameState.enemies.forEach(enemy => {
+        // Enemy body
+        ctx.fillStyle = '#ff4444';
         ctx.beginPath();
-        ctx.arc(enemy.x, enemy.y, 4, 0, Math.PI * 2);
+        ctx.arc(enemy.x, enemy.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(enemy.x - 2, enemy.y - 1, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(enemy.x + 2, enemy.y - 1, 1.5, 0, Math.PI * 2);
         ctx.fill();
         // HP bar
         ctx.fillStyle = '#333';
-        ctx.fillRect(enemy.x - 8, enemy.y - 12, 16, 2);
-        ctx.fillStyle = '#ef4444';
-        ctx.fillRect(enemy.x - 8, enemy.y - 12, 16 * (enemy.hp / enemy.maxHp), 2);
-    });
-
-    // Draw projectiles
-    ctx.fillStyle = '#fbbf24';
-    gameState.projectiles.forEach(proj => {
-        ctx.beginPath();
-        ctx.arc(proj.x, proj.y, 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(enemy.x - 10, enemy.y - 14, 20, 2);
+        ctx.fillStyle = '#ff4444';
+        ctx.fillRect(enemy.x - 10, enemy.y - 14, 20 * (enemy.hp / enemy.maxHp), 2);
     });
 
     // Draw food items
