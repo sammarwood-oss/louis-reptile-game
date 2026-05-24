@@ -388,22 +388,22 @@ function updatePlayer() {
     gameState.player.x = Math.max(10, Math.min(790, gameState.player.x));
     gameState.player.y = Math.max(10, Math.min(590, gameState.player.y));
 
-    // Attack input
+    // Attack input (Z, X, C, V, B keys)
     const species = gameState.player.species;
-    if (input['p'] && !input['p_pressed']) { attack(0, species); input['p_pressed'] = true; }
-    if (!input['p']) input['p_pressed'] = false;
+    if (input['z'] && !input['z_pressed']) { attack(0, species); input['z_pressed'] = true; }
+    if (!input['z']) input['z_pressed'] = false;
 
-    if (input['e'] && !input['e_pressed']) { attack(1, species); input['e_pressed'] = true; }
-    if (!input['e']) input['e_pressed'] = false;
-
-    if (input['x'] && !input['x_pressed']) { attack(2, species); input['x_pressed'] = true; }
+    if (input['x'] && !input['x_pressed']) { attack(1, species); input['x_pressed'] = true; }
     if (!input['x']) input['x_pressed'] = false;
 
-    if (input['q'] && !input['q_pressed']) { attack(3, species); input['q_pressed'] = true; }
-    if (!input['q']) input['q_pressed'] = false;
+    if (input['c'] && !input['c_pressed']) { attack(2, species); input['c_pressed'] = true; }
+    if (!input['c']) input['c_pressed'] = false;
 
-    if (input['m'] && !input['m_pressed']) { attack(4, species); input['m_pressed'] = true; }
-    if (!input['m']) input['m_pressed'] = false;
+    if (input['v'] && !input['v_pressed']) { attack(3, species); input['v_pressed'] = true; }
+    if (!input['v']) input['v_pressed'] = false;
+
+    if (input['b'] && !input['b_pressed']) { attack(4, species); input['b_pressed'] = true; }
+    if (!input['b']) input['b_pressed'] = false;
 
     // Jump feedback
     if (input[' '] && !input['space_pressed']) {
@@ -415,11 +415,19 @@ function updatePlayer() {
     if (gameState.player.jumpTime) {
         gameState.player.jumpTime -= 16;
     }
+
+    // Update mouth animation timer
+    if (gameState.player.mouthOpenTime) {
+        gameState.player.mouthOpenTime -= 16;
+    }
 }
 
 function attack(moveIndex, species) {
     const move = species.moves[moveIndex];
     if (!move) return;
+
+    // Open mouth animation
+    gameState.player.mouthOpenTime = 200; // milliseconds
 
     // Instant melee attack - damage all enemies within range
     gameState.enemies.forEach(enemy => {
@@ -587,10 +595,20 @@ function render() {
 
     // Draw obstacles (trees/rocks)
     gameState.obstacles.forEach(obs => {
-        ctx.fillStyle = obs.type === 'tree' ? '#228B22' : '#8B8680';
+        if (obs.type === 'tree') {
+            // Brown tree
+            ctx.fillStyle = '#8B4513';
+        } else {
+            // Grey rock
+            ctx.fillStyle = '#AAAAAA';
+        }
         ctx.beginPath();
         ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
         ctx.fill();
+        // Add border to make them stand out more
+        ctx.strokeStyle = obs.type === 'tree' ? '#654321' : '#888888';
+        ctx.lineWidth = 2;
+        ctx.stroke();
     });
 
     // Draw water holes
@@ -609,6 +627,7 @@ function render() {
     ctx.beginPath();
     ctx.arc(gameState.player.x, gameState.player.y, 6, 0, Math.PI * 2);
     ctx.fill();
+
     // Eyes
     ctx.fillStyle = '#000';
     ctx.beginPath();
@@ -616,6 +635,13 @@ function render() {
     ctx.fill();
     ctx.beginPath();
     ctx.arc(gameState.player.x + 2, gameState.player.y - 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Mouth animation - opens when attacking
+    const mouthOpenness = gameState.player.mouthOpenTime ? 3 : 0;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(gameState.player.x, gameState.player.y + 2, mouthOpenness, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw enemies
@@ -647,6 +673,21 @@ function render() {
         ctx.arc(food.x, food.y, 3, 0, Math.PI * 2);
         ctx.fill();
     });
+
+    // Display current moves/attacks on screen
+    const species = gameState.player.species;
+    const moveLabels = ['Z', 'X', 'C', 'V', 'B'];
+    ctx.fillStyle = '#8b8b8b';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'left';
+
+    for (let i = 0; i < 5; i++) {
+        const move = species.moves[i];
+        const y = 20 + i * 15;
+        const dmgText = move.damage > 0 ? `${move.damage} dmg` : 'effect';
+        const text = `${moveLabels[i]}: ${move.name} (${dmgText}, ${move.range} range)`;
+        ctx.fillText(text, 10, y);
+    }
 
     // Update UI
     document.getElementById('dayIndicator').textContent = `Day ${gameState.day} ${gameState.isNight ? '🌙' : '☀️'}`;
