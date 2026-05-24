@@ -1,6 +1,8 @@
 // Louis's Reptile Survival Game
 // Core game engine - game loop, entities, collision, combat
 
+console.log('game.js loaded');
+
 const API_BASE = 'http://62.238.7.80/inbox';
 const GAME_NAME = 'louis-reptile';
 
@@ -160,14 +162,24 @@ if (canvas) {
 
 // ─── UI: Character Select ───────────────────────────────────────────────────
 function initCharacterSelect() {
+    console.log('initCharacterSelect called');
     const typeBtn = document.getElementById('typeButtons');
-    if (!typeBtn) return;
+    if (!typeBtn) {
+        console.error('typeButtons element not found');
+        return;
+    }
 
     typeBtn.innerHTML = Object.keys(SPECIES_DATA).map(type =>
         `<button class="animal-btn" onclick="selectType('${type}')">${type[0].toUpperCase() + type.slice(1)}</button>`
     ).join('');
 
-    document.getElementById('startBtn').onclick = startGame;
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+        startBtn.onclick = startGame;
+        console.log('startBtn click handler attached');
+    } else {
+        console.error('startBtn element not found');
+    }
 }
 
 function selectType(type) {
@@ -197,9 +209,17 @@ function selectSpecies(type, idx) {
 }
 
 function startGame() {
-    if (!gameState.selectedType || gameState.selectedSpecies === null) return;
+    console.log('startGame called');
+    console.log('selectedType:', gameState.selectedType, 'selectedSpecies:', gameState.selectedSpecies);
+
+    if (!gameState.selectedType || gameState.selectedSpecies === null) {
+        console.warn('No species selected');
+        return;
+    }
 
     const species = SPECIES_DATA[gameState.selectedType][gameState.selectedSpecies];
+    console.log('Starting with species:', species.name);
+
     gameState.maxHp = species.maxHp || 30;
     gameState.hp = gameState.maxHp;
     gameState.energy = 15;
@@ -213,10 +233,15 @@ function startGame() {
     gameState.currentScreen = 'game';
 
     document.getElementById('characterSelect').classList.remove('active');
-    canvas.classList.add('active');
+    if (canvas) {
+        canvas.classList.add('active');
+    } else {
+        console.error('Canvas element not found');
+    }
 
     gameState.player = { x: 400, y: 300, radius: 3, species, type: gameState.selectedType };
     spawnEnemy();
+    console.log('Starting game loop');
     gameLoop();
 }
 
