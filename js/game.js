@@ -421,7 +421,22 @@ function attack(moveIndex, species) {
     const move = species.moves[moveIndex];
     if (!move) return;
 
-    const angle = Math.atan2(gameState.player.y - 300, gameState.player.x - 400);
+    // Find nearest enemy to aim at
+    let nearestEnemy = null;
+    let nearestDist = Infinity;
+    gameState.enemies.forEach(enemy => {
+        const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestEnemy = enemy;
+        }
+    });
+
+    // If no enemy, don't attack
+    if (!nearestEnemy) return;
+
+    // Aim at nearest enemy
+    const angle = Math.atan2(nearestEnemy.y - gameState.player.y, nearestEnemy.x - gameState.player.x);
     gameState.projectiles.push({
         x: gameState.player.x,
         y: gameState.player.y,
@@ -697,17 +712,27 @@ function render() {
         ctx.fill();
     });
 
-    // Draw current moves on canvas
+    // Draw current moves on canvas with details
     if (gameState.player && gameState.player.species) {
-        ctx.fillStyle = '#fff';
-        ctx.font = '11px monospace';
-        let y = 580;
         const moves = gameState.player.species.moves;
-        let moveText = 'Moves: ';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(5, 530, 790, 65);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('MOVES:', 10, 545);
+
         moves.forEach((move, idx) => {
-            moveText += `${move.key.toUpperCase()}=${move.name} `;
+            const x = 70 + (idx * 150);
+            const y = 545;
+            ctx.fillStyle = '#22c55e';
+            ctx.font = 'bold 11px monospace';
+            ctx.fillText(`${move.key.toUpperCase()}`, x, y);
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px monospace';
+            ctx.fillText(`${move.name}`, x, y + 12);
+            ctx.fillText(`DMG:${move.damage} RNG:${move.range}`, x, y + 24);
         });
-        ctx.fillText(moveText, 10, y);
     }
 
     // Update UI
