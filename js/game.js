@@ -532,13 +532,15 @@ function generateWorld() {
         });
     }
 
-    // Generate water holes
+    // Generate water holes (dry up after 60 seconds)
     gameState.waterHoles = [];
     for (let i = 0; i < 4; i++) {
         gameState.waterHoles.push({
             x: Math.random() * 800,
             y: Math.random() * 600,
-            radius: 10
+            radius: 10,
+            createdAt: Date.now(),
+            durationMs: 60000 // 60 seconds before drying up
         });
     }
 }
@@ -584,12 +586,19 @@ function checkCollisions() {
     });
 
     // Check if player collides with water (drinking restores health)
-    gameState.waterHoles.forEach(water => {
+    gameState.waterHoles = gameState.waterHoles.filter(water => {
+        const age = Date.now() - water.createdAt;
+        // Remove if dried up
+        if (age > water.durationMs) {
+            return false;
+        }
+
         const dist = Math.hypot(water.x - gameState.player.x, water.y - gameState.player.y);
         if (dist < water.radius + 8) {
-            // Standing in water restores health (5 HP per second - much faster healing)
+            // Standing in water restores health (5 HP per second)
             gameState.hp = Math.min(gameState.maxHp, gameState.hp + 0.083);
         }
+        return true;
     });
 }
 
@@ -629,12 +638,17 @@ function render() {
     });
 
     // Draw water holes
-    ctx.fillStyle = '#4A90E2';
     gameState.waterHoles.forEach(water => {
+        const age = Date.now() - water.createdAt;
+        const timeLeft = water.durationMs - age;
+        // Fade out as pool dries up
+        const alpha = Math.max(0.3, timeLeft / water.durationMs);
+
+        ctx.fillStyle = `rgba(74, 144, 226, ${alpha})`;
         ctx.beginPath();
         ctx.arc(water.x, water.y, water.radius, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#2E5C8A';
+        ctx.strokeStyle = `rgba(46, 92, 138, ${alpha})`;
         ctx.lineWidth = 2;
         ctx.stroke();
     });
@@ -661,13 +675,26 @@ function render() {
     ctx.arc(gameState.player.x, gameState.player.y + 2, mouthOpenness, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw enemies
+    // Draw enemies (different colors by species)
+    const enemyColors = {
+        'Monitor': '#ff4444',
+        'Komodo': '#dd2200',
+        'Bear': '#8B4513',
+        'Lion': '#FF8C00',
+        'Eagle': '#DAA520',
+        'Python': '#9932CC',
+        'Hyena': '#FF6347',
+        'Alligator': '#228B22'
+    };
+
     gameState.enemies.forEach(enemy => {
-        // Enemy body
-        ctx.fillStyle = '#ff4444';
+        // Enemy body - color based on species
+        const color = enemyColors[enemy.name] || '#ff4444';
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(enemy.x, enemy.y, 5, 0, Math.PI * 2);
         ctx.fill();
+
         // Eyes
         ctx.fillStyle = '#000';
         ctx.beginPath();
@@ -676,10 +703,11 @@ function render() {
         ctx.beginPath();
         ctx.arc(enemy.x + 2, enemy.y - 1, 1.5, 0, Math.PI * 2);
         ctx.fill();
+
         // HP bar
         ctx.fillStyle = '#333';
         ctx.fillRect(enemy.x - 10, enemy.y - 14, 20, 2);
-        ctx.fillStyle = '#ff4444';
+        ctx.fillStyle = color;
         ctx.fillRect(enemy.x - 10, enemy.y - 14, 20 * (enemy.hp / enemy.maxHp), 2);
     });
 
