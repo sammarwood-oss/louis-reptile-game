@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Louis's Reptile Survival Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        #gameContainer {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        canvas {
+            display: block;
+            background: #0a0a0a;
+            border: 2px solid #333;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            image-rendering: pixelated;
+        }
+
+        #screen {
+            display: none;
+        }
+
+        #screen.active {
+            display: block;
+        }
+
+        #characterSelect {
+            display: none;
+        }
+
+        #characterSelect.active {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .animal-btn {
+            padding: 15px;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .animal-btn:hover {
+            background: #3a3a3a;
+            border-color: #666;
+        }
+
+        .animal-btn.active {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: #000;
+        }
+
+        #speciesSelect {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        #speciesSelect.active {
+            display: grid;
+        }
+
+        .species-btn {
+            padding: 15px;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .species-btn:hover:not(:disabled) {
+            background: #3a3a3a;
+            border-color: #666;
+        }
+
+        .species-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .species-btn.active {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: #000;
+        }
+
+        #startBtn {
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #22c55e;
+            border: none;
+            color: #000;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        #startBtn:hover {
+            background: #16a34a;
+        }
+
+        #startBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .ui-top {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            font-size: 12px;
+            color: #8b8b8b;
+        }
+
+        .ui-right {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .bar {
+            width: 100px;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #22c55e;
+            transition: width 0.1s;
+        }
+
+        .bar-hp .bar-fill {
+            background: #ef4444;
+        }
+
+        .status-msg {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: #8b8b8b;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="characterSelect" class="active">
+            <h2 style="grid-column: 1/-1; margin-bottom: 10px;">Pick Your Reptile</h2>
+            <div id="typeButtons" style="grid-column: 1/-1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;"></div>
+            <div id="speciesSelect"></div>
+            <button id="startBtn" disabled style="grid-column: 1/-1;">START GAME</button>
+        </div>
+        <div id="screen"></div>
+        <div class="ui-top">
+            <span id="dayIndicator">Day 1 ☀️</span>
+            <span id="killCount">Kills: 0</span>
+        </div>
+        <div class="ui-right">
+            <div>
+                <div style="margin-bottom: 4px;">❤️ HP</div>
+                <div class="bar bar-hp">
+                    <div id="hpBar" class="bar-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <div>
+                <div style="margin-bottom: 4px;">⚡ Energy</div>
+                <div class="bar">
+                    <div id="energyBar" class="bar-fill" style="width: 100%"></div>
+                </div>
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; color: #666;">
+                <span id="saveStatus">Ready</span>
+            </div>
+        </div>
+        <div class="status-msg">
+            <div>⬅️➡️⬆️⬇️ Move | P/E/X/Q/M Attack | SPACE Jump</div>
+        </div>
+    </div>
+
+    <script src="js/game.js"></script>
+</body>
+</html>
