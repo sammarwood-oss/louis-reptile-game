@@ -704,29 +704,6 @@ function render() {
         ctx.fill();
     });
 
-    // Draw current moves on canvas with details
-    if (gameState.player && gameState.player.species) {
-        const moves = gameState.player.species.moves;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(5, 530, 790, 65);
-
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px monospace';
-        ctx.fillText('MOVES:', 10, 545);
-
-        moves.forEach((move, idx) => {
-            const x = 70 + (idx * 150);
-            const y = 545;
-            ctx.fillStyle = '#22c55e';
-            ctx.font = 'bold 11px monospace';
-            ctx.fillText(`${move.key.toUpperCase()}`, x, y);
-            ctx.fillStyle = '#fff';
-            ctx.font = '10px monospace';
-            ctx.fillText(`${move.name}`, x, y + 12);
-            ctx.fillText(`DMG:${move.damage} RNG:${move.range}`, x, y + 24);
-        });
-    }
-
     // Update UI
     document.getElementById('dayIndicator').textContent = `Day ${gameState.day} ${gameState.isNight ? '🌙' : '☀️'}`;
     document.getElementById('killCount').textContent = `Kills: ${gameState.kills}`;
