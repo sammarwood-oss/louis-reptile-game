@@ -461,11 +461,6 @@ function updateEnemies() {
 
 function updateEnergy() {
     gameState.energy = Math.max(0, gameState.energy - 0.033 / 60); // drain 2 per minute
-
-    // Regen HP at full energy
-    if (gameState.energy >= gameState.maxEnergy && gameState.hp < gameState.maxHp) {
-        gameState.hp = Math.min(gameState.maxHp, gameState.hp + 0.067); // 2 per 5 sec
-    }
 }
 
 function checkDayChange() {
@@ -553,21 +548,22 @@ function spawnEnemy() {
 }
 
 function checkCollisions() {
-    // Check if player collides with food
+    // Check if player collides with food (eating restores energy)
     gameState.foodItems = gameState.foodItems.filter(food => {
         const dist = Math.hypot(food.x - gameState.player.x, food.y - gameState.player.y);
         if (dist < 8) {
-            gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + food.energy);
+            gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + food.energy); // +5 per food
             return false; // remove food
         }
         return true;
     });
 
-    // Check if player collides with water (drinking)
+    // Check if player collides with water (drinking restores health)
     gameState.waterHoles.forEach(water => {
         const dist = Math.hypot(water.x - gameState.player.x, water.y - gameState.player.y);
-        if (dist < water.radius + 5) {
-            gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 0.5); // slow drip of water
+        if (dist < water.radius + 8) {
+            // Standing in water restores health (2 HP per second)
+            gameState.hp = Math.min(gameState.maxHp, gameState.hp + 0.033);
         }
     });
 }
