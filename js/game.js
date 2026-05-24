@@ -15,6 +15,7 @@ const gameState = {
     enemies: [],
     projectiles: [],
     obstacles: [],
+    foodItems: [], // dropped by killed enemies
     day: 1,
     hp: 30,
     maxHp: 30,
@@ -25,7 +26,7 @@ const gameState = {
     startedAt: null,
     lastSavedAt: null,
     dayStartTime: null,
-    nightCycle: 5 * 60 * 1000, // 5 minutes = 1 day
+    nightCycle: 60 * 1000, // 60 seconds = 1 day
     lastEnemySpawn: 0,
     isNight: false,
     gameRunning: false,
@@ -36,100 +37,180 @@ const SPECIES_DATA = {
     snakes: [
         { name: 'Green Snake', moves: [
             { key: 'P', name: 'Strike', damage: 4, range: 30, cooldown: 0.5 },
-            { key: 'E', name: 'Coil', damage: 2, range: 20, cooldown: 0.8 }
+            { key: 'E', name: 'Coil', damage: 2, range: 20, cooldown: 0.8 },
+            { key: 'X', name: 'Tongue Flick', damage: 1, range: 60, cooldown: 1 },
+            { key: 'Q', name: 'Slither Dash', damage: 3, range: 25, cooldown: 1.2 },
+            { key: 'M', name: 'Constrict', damage: 3, range: 15, cooldown: 2 }
         ]},
         { name: 'Cobra', moves: [
             { key: 'P', name: 'Strike', damage: 5, range: 35, cooldown: 0.5 },
-            { key: 'E', name: 'Hood Spread', damage: 3, range: 40, cooldown: 1.2 }
+            { key: 'E', name: 'Hood Spread', damage: 3, range: 40, cooldown: 1.2 },
+            { key: 'X', name: 'Venom Spit', damage: 4, range: 50, cooldown: 1.5 },
+            { key: 'Q', name: 'Lightning Strike', damage: 6, range: 30, cooldown: 2 },
+            { key: 'M', name: 'Hypnotic Dance', damage: 0, range: 60, cooldown: 3, stun: true }
         ]},
         { name: 'Python', moves: [
             { key: 'P', name: 'Squeeze', damage: 6, range: 25, cooldown: 0.6 },
-            { key: 'E', name: 'Coil', damage: 2, range: 20, cooldown: 0.8 }
+            { key: 'E', name: 'Coil', damage: 2, range: 20, cooldown: 0.8 },
+            { key: 'X', name: 'Body Slam', damage: 5, range: 20, cooldown: 1.5 },
+            { key: 'Q', name: 'Tail Whip', damage: 4, range: 35, cooldown: 1 },
+            { key: 'M', name: 'Crushing Embrace', damage: 7, range: 18, cooldown: 3 }
         ]},
         { name: 'Viper', moves: [
-            { key: 'P', name: 'Spit', damage: 4, range: 50, cooldown: 1.5, poison: true },
-            { key: 'E', name: 'Strike', damage: 5, range: 30, cooldown: 0.5 }
+            { key: 'P', name: 'Spit', damage: 4, range: 50, cooldown: 1.5 },
+            { key: 'E', name: 'Strike', damage: 5, range: 30, cooldown: 0.5 },
+            { key: 'X', name: 'Fanged Bite', damage: 6, range: 20, cooldown: 0.8 },
+            { key: 'Q', name: 'Sidewinder Dash', damage: 3, range: 25, cooldown: 1.2 },
+            { key: 'M', name: 'Venom Spray', damage: 5, range: 45, cooldown: 2.5 }
         ]},
         { name: 'Titanoboa', maxHp: 50, moves: [
             { key: 'P', name: 'Crush', damage: 8, range: 40, cooldown: 0.7 },
-            { key: 'E', name: 'Coil', damage: 4, range: 25, cooldown: 1 }
+            { key: 'E', name: 'Coil', damage: 4, range: 25, cooldown: 1 },
+            { key: 'X', name: 'Massive Strike', damage: 9, range: 35, cooldown: 1 },
+            { key: 'Q', name: 'Tail Slam', damage: 7, range: 40, cooldown: 1.3 },
+            { key: 'M', name: 'Full Body Wrap', damage: 6, range: 20, cooldown: 3 }
         ], unlock: 'survive_5_days'}
     ],
     lizards: [
         { name: 'Gecko', moves: [
             { key: 'P', name: 'Bite', damage: 3, range: 25, cooldown: 0.5 },
-            { key: 'E', name: 'Scratch', damage: 2, range: 20, cooldown: 0.8 }
+            { key: 'E', name: 'Scratch', damage: 2, range: 20, cooldown: 0.8 },
+            { key: 'X', name: 'Wall Climb', damage: 0, range: 10, cooldown: 1, dodge: true },
+            { key: 'Q', name: 'Tail Whip', damage: 3, range: 30, cooldown: 1.2 },
+            { key: 'M', name: 'Adhesive Grip', damage: 1, range: 15, cooldown: 2 }
         ]},
         { name: 'Iguana', moves: [
             { key: 'P', name: 'Bite', damage: 4, range: 28, cooldown: 0.6 },
-            { key: 'E', name: 'Tail Whip', damage: 3, range: 35, cooldown: 1 }
+            { key: 'E', name: 'Tail Whip', damage: 3, range: 35, cooldown: 1 },
+            { key: 'X', name: 'Spiky Quill', damage: 4, range: 40, cooldown: 1.5 },
+            { key: 'Q', name: 'Head Butt', damage: 5, range: 20, cooldown: 1.3 },
+            { key: 'M', name: 'Powerful Tail Slam', damage: 6, range: 30, cooldown: 2.5 }
         ]},
         { name: 'Bearded Dragon', moves: [
             { key: 'P', name: 'Bite', damage: 4, range: 25, cooldown: 0.5 },
-            { key: 'E', name: 'Flare', damage: 2, range: 40, cooldown: 1.5 }
+            { key: 'E', name: 'Flare', damage: 2, range: 40, cooldown: 1.5 },
+            { key: 'X', name: 'Throat Expand', damage: 3, range: 50, cooldown: 2 },
+            { key: 'Q', name: 'Front Leg Slash', damage: 4, range: 25, cooldown: 1 },
+            { key: 'M', name: 'Full Intimidation', damage: 2, range: 60, cooldown: 3, stun: true }
         ]},
         { name: 'Blue-Tongued Skink', moves: [
             { key: 'P', name: 'Bite', damage: 5, range: 25, cooldown: 0.6 },
-            { key: 'E', name: 'Hiss', damage: 0, range: 60, cooldown: 2, stun: true }
+            { key: 'E', name: 'Hiss', damage: 0, range: 60, cooldown: 2, stun: true },
+            { key: 'X', name: 'Tongue Strike', damage: 4, range: 40, cooldown: 1.2 },
+            { key: 'Q', name: 'Body Shield', damage: 2, range: 15, cooldown: 1.5 },
+            { key: 'M', name: 'Hypnotic Tongue', damage: 3, range: 45, cooldown: 2.5 }
         ]},
         { name: 'Komodo Dragon', maxHp: 50, moves: [
             { key: 'P', name: 'Bite', damage: 8, range: 30, cooldown: 0.7 },
-            { key: 'E', name: 'Claw', damage: 6, range: 25, cooldown: 0.8 }
+            { key: 'E', name: 'Claw', damage: 6, range: 25, cooldown: 0.8 },
+            { key: 'X', name: 'Venomous Strike', damage: 7, range: 35, cooldown: 1.2 },
+            { key: 'Q', name: 'Crushing Tail', damage: 8, range: 40, cooldown: 1.5 },
+            { key: 'M', name: 'Predator\'s Fury', damage: 9, range: 30, cooldown: 3 }
         ], unlock: 'survive_10_days'}
     ],
     monitors: [
         { name: 'Asian Water Monitor', moves: [
             { key: 'P', name: 'Bite', damage: 4, range: 28, cooldown: 0.5 },
-            { key: 'E', name: 'Tail', damage: 3, range: 35, cooldown: 1 }
+            { key: 'E', name: 'Tail', damage: 3, range: 35, cooldown: 1 },
+            { key: 'X', name: 'Water Dash', damage: 3, range: 30, cooldown: 1.2 },
+            { key: 'Q', name: 'Swimming Strike', damage: 4, range: 25, cooldown: 1 },
+            { key: 'M', name: 'Death Roll', damage: 6, range: 20, cooldown: 2.5 }
         ]},
         { name: 'African Monitor', moves: [
             { key: 'P', name: 'Bite', damage: 5, range: 30, cooldown: 0.6 },
-            { key: 'E', name: 'Claw', damage: 4, range: 25, cooldown: 0.8 }
+            { key: 'E', name: 'Claw', damage: 4, range: 25, cooldown: 0.8 },
+            { key: 'X', name: 'Desert Sprint', damage: 4, range: 35, cooldown: 1.3 },
+            { key: 'Q', name: 'Charging Headbutt', damage: 6, range: 28, cooldown: 1.5 },
+            { key: 'M', name: 'Scorching Breath', damage: 5, range: 45, cooldown: 2.5 }
         ]},
         { name: 'Lace Monitor', moves: [
             { key: 'P', name: 'Bite', damage: 4, range: 28, cooldown: 0.5 },
-            { key: 'E', name: 'Slash', damage: 3, range: 30, cooldown: 0.9 }
+            { key: 'E', name: 'Slash', damage: 3, range: 30, cooldown: 0.9 },
+            { key: 'X', name: 'Tree Climb', damage: 0, range: 10, cooldown: 1, dodge: true },
+            { key: 'Q', name: 'Leaping Strike', damage: 5, range: 35, cooldown: 1.5 },
+            { key: 'M', name: 'Cyclone Tail', damage: 6, range: 40, cooldown: 2.5 }
         ]},
         { name: 'Perentie', moves: [
             { key: 'P', name: 'Bite', damage: 6, range: 32, cooldown: 0.6 },
-            { key: 'E', name: 'Claw', damage: 5, range: 28, cooldown: 0.8 }
+            { key: 'E', name: 'Claw', damage: 5, range: 28, cooldown: 0.8 },
+            { key: 'X', name: 'Powerful Swipe', damage: 6, range: 30, cooldown: 1 },
+            { key: 'Q', name: 'Hunter\'s Pounce', damage: 7, range: 25, cooldown: 1.5 },
+            { key: 'M', name: 'Predator\'s Roar', damage: 5, range: 50, cooldown: 2 }
         ]},
         { name: 'Saltwater Monitor', maxHp: 50, moves: [
             { key: 'P', name: 'Bite', damage: 9, range: 35, cooldown: 0.7 },
-            { key: 'E', name: 'Tail Slam', damage: 7, range: 40, cooldown: 1 }
+            { key: 'E', name: 'Tail Slam', damage: 7, range: 40, cooldown: 1 },
+            { key: 'X', name: 'Croc Spin', damage: 8, range: 25, cooldown: 1.2 },
+            { key: 'Q', name: 'Water Lunge', damage: 9, range: 38, cooldown: 1.5 },
+            { key: 'M', name: 'Apex Predator', damage: 10, range: 35, cooldown: 3 }
         ], unlock: 'survive_8_days'}
     ],
     turtles: [
         { name: 'Red-Eared Slider', maxHp: 45, moves: [
             { key: 'P', name: 'Bite', damage: 2, range: 15, cooldown: 0.6 },
-            { key: 'E', name: 'Snap', damage: 3, range: 20, cooldown: 0.8 }
+            { key: 'E', name: 'Snap', damage: 3, range: 20, cooldown: 0.8 },
+            { key: 'X', name: 'Shell Retract', damage: 0, range: 10, cooldown: 2, shield: true },
+            { key: 'Q', name: 'Aquatic Glide', damage: 2, range: 25, cooldown: 1.2 },
+            { key: 'M', name: 'Ancient Wisdom', damage: 1, range: 40, cooldown: 3, buff: true }
         ]},
         { name: 'Map Turtle', maxHp: 45, moves: [
             { key: 'P', name: 'Bite', damage: 3, range: 18, cooldown: 0.6 },
-            { key: 'E', name: 'Snap', damage: 3, range: 22, cooldown: 0.8 }
+            { key: 'E', name: 'Snap', damage: 3, range: 22, cooldown: 0.8 },
+            { key: 'X', name: 'Pattern Shift', damage: 1, range: 30, cooldown: 1.5, dodge: true },
+            { key: 'Q', name: 'Water Sprint', damage: 3, range: 28, cooldown: 1 },
+            { key: 'M', name: 'Navigation Sense', damage: 0, range: 50, cooldown: 2.5, sense: true }
         ]},
         { name: 'Snapping Turtle', maxHp: 45, moves: [
             { key: 'P', name: 'Snap', damage: 5, range: 22, cooldown: 0.5 },
-            { key: 'E', name: 'Thrash', damage: 3, range: 25, cooldown: 1 }
+            { key: 'E', name: 'Thrash', damage: 3, range: 25, cooldown: 1 },
+            { key: 'X', name: 'Powerful Bite', damage: 6, range: 20, cooldown: 0.8 },
+            { key: 'Q', name: 'Tail Whip', damage: 4, range: 30, cooldown: 1.3 },
+            { key: 'M', name: 'Snapping Frenzy', damage: 7, range: 18, cooldown: 2.5 }
         ]},
         { name: 'Soft Shell', maxHp: 45, moves: [
             { key: 'P', name: 'Bite', damage: 4, range: 20, cooldown: 0.6 },
-            { key: 'E', name: 'Lunge', damage: 3, range: 28, cooldown: 0.9 }
+            { key: 'E', name: 'Lunge', damage: 3, range: 28, cooldown: 0.9 },
+            { key: 'X', name: 'Quick Strike', damage: 5, range: 22, cooldown: 0.7 },
+            { key: 'Q', name: 'Flexible Dash', damage: 3, range: 32, cooldown: 1.2 },
+            { key: 'M', name: 'Rapid Fury', damage: 6, range: 20, cooldown: 2 }
         ]},
         { name: 'Giant Tortoise', maxHp: 65, moves: [
             { key: 'P', name: 'Bite', damage: 3, range: 18, cooldown: 0.8 },
-            { key: 'E', name: 'Ram', damage: 6, range: 25, cooldown: 1.2 }
+            { key: 'E', name: 'Ram', damage: 6, range: 25, cooldown: 1.2 },
+            { key: 'X', name: 'Heavy Shell Defense', damage: 1, range: 15, cooldown: 2, shield: true },
+            { key: 'Q', name: 'Slow Crushing', damage: 5, range: 20, cooldown: 1.5 },
+            { key: 'M', name: 'Unstoppable Force', damage: 8, range: 25, cooldown: 3 }
         ], unlock: 'survive_12_days'}
     ],
     crocodiles: [
         { name: 'Gharial', moves: [
             { key: 'P', name: 'Bite', damage: 5, range: 32, cooldown: 0.6 },
-            { key: 'E', name: 'Tail', damage: 4, range: 38, cooldown: 1 }
+            { key: 'E', name: 'Tail', damage: 4, range: 38, cooldown: 1 },
+            { key: 'X', name: 'Jaw Clamp', damage: 6, range: 28, cooldown: 0.8 },
+            { key: 'Q', name: 'Tail Sweep', damage: 5, range: 40, cooldown: 1.3 },
+            { key: 'M', name: 'River Hunter', damage: 7, range: 35, cooldown: 2.5 }
         ]},
         { name: 'Saltwater Croc', maxHp: 50, moves: [
             { key: 'P', name: 'Bite', damage: 7, range: 35, cooldown: 0.6 },
-            { key: 'E', name: 'Death Roll', damage: 6, range: 40, cooldown: 1.5 }
-        ], unlock: 'survive_12_days'}
+            { key: 'E', name: 'Death Roll', damage: 6, range: 40, cooldown: 1.5 },
+            { key: 'X', name: 'Apex Bite', damage: 8, range: 32, cooldown: 0.8 },
+            { key: 'Q', name: 'Spinning Fury', damage: 7, range: 35, cooldown: 1.3 },
+            { key: 'M', name: 'Prehistoric Wrath', damage: 9, range: 38, cooldown: 3 }
+        ], unlock: 'survive_12_days'},
+        { name: 'Nile Croc', maxHp: 48, moves: [
+            { key: 'P', name: 'Bite', damage: 6, range: 33, cooldown: 0.6 },
+            { key: 'E', name: 'Tail Whip', damage: 5, range: 36, cooldown: 1 },
+            { key: 'X', name: 'Water Ambush', damage: 5, range: 40, cooldown: 1.2 },
+            { key: 'Q', name: 'Crushing Jaw', damage: 7, range: 30, cooldown: 1.3 },
+            { key: 'M', name: 'Apex Predator', damage: 8, range: 35, cooldown: 2.5 }
+        ]},
+        { name: 'American Croc', maxHp: 46, moves: [
+            { key: 'P', name: 'Bite', damage: 6, range: 34, cooldown: 0.6 },
+            { key: 'E', name: 'Tail Slam', damage: 5, range: 37, cooldown: 1 },
+            { key: 'X', name: 'Powerful Lunge', damage: 6, range: 32, cooldown: 1.1 },
+            { key: 'Q', name: 'Swamp Hunter', damage: 6, range: 38, cooldown: 1.4 },
+            { key: 'M', name: 'Ancient Power', damage: 8, range: 34, cooldown: 2.5 }
+        ]}
     ]
 };
 
@@ -291,6 +372,15 @@ function updatePlayer() {
     if (input['e'] && !input['e_pressed']) { attack(1, species); input['e_pressed'] = true; }
     if (!input['e']) input['e_pressed'] = false;
 
+    if (input['x'] && !input['x_pressed']) { attack(2, species); input['x_pressed'] = true; }
+    if (!input['x']) input['x_pressed'] = false;
+
+    if (input['q'] && !input['q_pressed']) { attack(3, species); input['q_pressed'] = true; }
+    if (!input['q']) input['q_pressed'] = false;
+
+    if (input['m'] && !input['m_pressed']) { attack(4, species); input['m_pressed'] = true; }
+    if (!input['m']) input['m_pressed'] = false;
+
     // Jump feedback
     if (input[' '] && !input['space_pressed']) {
         gameState.player.jumpTime = 200;
@@ -398,6 +488,8 @@ function checkCollisions() {
                     enemy.hp -= proj.damage;
                     gameState.projectiles.splice(pidx, 1);
                     if (enemy.hp <= 0) {
+                        // Drop food when enemy dies
+                        gameState.foodItems.push({ x: enemy.x, y: enemy.y, energy: 5 });
                         gameState.enemies.splice(eidx, 1);
                         gameState.kills++;
                         gameState.score += 100;
@@ -411,6 +503,16 @@ function checkCollisions() {
                 gameState.projectiles.splice(pidx, 1);
             }
         }
+    });
+
+    // Check if player collides with food
+    gameState.foodItems = gameState.foodItems.filter(food => {
+        const dist = Math.hypot(food.x - gameState.player.x, food.y - gameState.player.y);
+        if (dist < 8) {
+            gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + food.energy);
+            return false; // remove food
+        }
+        return true;
     });
 }
 
@@ -464,6 +566,27 @@ function render() {
         ctx.arc(proj.x, proj.y, 2, 0, Math.PI * 2);
         ctx.fill();
     });
+
+    // Draw food items
+    ctx.fillStyle = '#84cc16';
+    gameState.foodItems.forEach(food => {
+        ctx.beginPath();
+        ctx.arc(food.x, food.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Draw current moves on canvas
+    if (gameState.player && gameState.player.species) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '11px monospace';
+        let y = 580;
+        const moves = gameState.player.species.moves;
+        let moveText = 'Moves: ';
+        moves.forEach((move, idx) => {
+            moveText += `${move.key.toUpperCase()}=${move.name} `;
+        });
+        ctx.fillText(moveText, 10, y);
+    }
 
     // Update UI
     document.getElementById('dayIndicator').textContent = `Day ${gameState.day} ${gameState.isNight ? '🌙' : '☀️'}`;
